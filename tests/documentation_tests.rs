@@ -1,11 +1,8 @@
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
 
-use subagent_worktree_mcp::server::{SubagentConfig, CleanupConfig};
-use subagent_worktree_mcp::{AgentOptions, AgentMonitorConfig};
+use subagent_worktree_mcp::{SubagentConfig, CleanupConfig, AgentOptions, AgentMonitorConfig};
 
 /// Test to verify that our README documentation matches our actual implementation
 /// This ensures we don't have documentation drift and that all tools are properly documented
@@ -192,16 +189,14 @@ fn test_subagent_config_fields() {
     // Test that SubagentConfig has all documented fields
     let config = SubagentConfig {
         branch_name: "test".to_string(),
-        base_branch: Some("main".to_string()),
         prompt: "test prompt".to_string(),
         worktree_dir: Some("custom-dir".to_string()),
-        agent_type: Some("cursor-cli".to_string()),
+        agent_type: Some("cursor-agent".to_string()),
         agent_options: Some(AgentOptions::default()),
     };
     
     // Verify all documented fields exist
     assert!(!config.branch_name.is_empty(), "branch_name should be present");
-    assert!(config.base_branch.is_some(), "base_branch should be optional");
     assert!(!config.prompt.is_empty(), "prompt should be present");
     assert!(config.worktree_dir.is_some(), "worktree_dir should be optional");
     assert!(config.agent_type.is_some(), "agent_type should be optional");
@@ -211,17 +206,15 @@ fn test_subagent_config_fields() {
 fn test_cleanup_config_fields() {
     // Test that CleanupConfig has all documented fields
     let config = CleanupConfig {
-        worktree_name: "test-worktree".to_string(),
-        force: true,
-        remove_branch: true,
-        kill_agents: true,
+        worktree_path: "test-worktree".to_string(),
+        force: Some(true),
+        delete_branch: Some(true),
     };
     
     // Verify all documented fields exist
-    assert!(!config.worktree_name.is_empty(), "worktree_name should be present");
-    assert!(config.force, "force should be present");
-    assert!(config.remove_branch, "remove_branch should be present");
-    assert!(config.kill_agents, "kill_agents should be present");
+    assert!(!config.worktree_path.is_empty(), "worktree_path should be present");
+    assert!(config.force.unwrap_or(false), "force should be present");
+    assert!(config.delete_branch.unwrap_or(false), "delete_branch should be present");
 }
 
 fn test_agent_monitor_config_fields() {
@@ -244,7 +237,6 @@ fn test_spawn_subagent_schema() {
     // Test that spawn_subagent parameters are correctly typed
     let config = SubagentConfig {
         branch_name: "required-field".to_string(), // Required
-        base_branch: None, // Optional
         prompt: "required-field".to_string(), // Required
         worktree_dir: None, // Optional
         agent_type: None, // Optional
@@ -256,7 +248,6 @@ fn test_spawn_subagent_schema() {
     assert!(!config.prompt.is_empty(), "prompt should be required");
     
     // Verify optional fields can be None
-    assert!(config.base_branch.is_none(), "base_branch should be optional");
     assert!(config.worktree_dir.is_none(), "worktree_dir should be optional");
     assert!(config.agent_type.is_none(), "agent_type should be optional");
     assert!(config.agent_options.is_none(), "agent_options should be optional");
@@ -265,19 +256,17 @@ fn test_spawn_subagent_schema() {
 fn test_cleanup_worktree_schema() {
     // Test that cleanup_worktree parameters are correctly typed
     let config = CleanupConfig {
-        worktree_name: "required-field".to_string(), // Required
-        force: false, // Optional with default
-        remove_branch: false, // Optional with default
-        kill_agents: false, // Optional with default
+        worktree_path: "required-field".to_string(), // Required
+        force: Some(false), // Optional with default
+        delete_branch: Some(false), // Optional with default
     };
     
     // Verify required field is not optional
-    assert!(!config.worktree_name.is_empty(), "worktree_name should be required");
+    assert!(!config.worktree_path.is_empty(), "worktree_path should be required");
     
     // Verify optional fields have sensible defaults
-    assert!(!config.force, "force should default to false");
-    assert!(!config.remove_branch, "remove_branch should default to false");
-    assert!(!config.kill_agents, "kill_agents should default to false");
+    assert!(!config.force.unwrap_or(false), "force should default to false");
+    assert!(!config.delete_branch.unwrap_or(false), "delete_branch should default to false");
 }
 
 fn test_monitor_agents_schema() {

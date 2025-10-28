@@ -71,6 +71,9 @@ async fn test_agent_process_info_creation() -> Result<()> {
         cmd: vec!["test-agent".to_string(), "--test".to_string()],
         cwd: "/tmp/test".to_string(),
         waiting_for_input: false,
+        cpu_usage: 0.5,
+        memory_usage: 1024,
+        start_time: 1234567890,
         spawned_by_us: true,
         worktree_path: Some("/tmp/test-worktree".into()),
     };
@@ -134,7 +137,7 @@ async fn test_agent_monitor_get_agent_details() -> Result<()> {
     let result = monitor.get_agent_details(99999).await;
     
     // Should return None for non-existent PID
-    assert_eq!(result.unwrap(), None, "Should return None for non-existent PID");
+    assert!(result.unwrap().is_none(), "Should return None for non-existent PID");
     
     Ok(())
 }
@@ -180,17 +183,19 @@ async fn test_agent_summary_creation() -> Result<()> {
     
     let summary = AgentSummary {
         total_agents: 5,
-        waiting_agents: 2,
-        our_agents: 3,
+        waiting_for_input: 2,
+        spawned_by_us: 3,
+        total_cpu_usage: 10.5,
+        total_memory_usage: 1024000,
         agent_types: std::collections::HashMap::new(),
-        worktree_distribution: std::collections::HashMap::new(),
     };
     
     assert_eq!(summary.total_agents, 5, "Total agents should be correct");
-    assert_eq!(summary.waiting_agents, 2, "Waiting agents should be correct");
-    assert_eq!(summary.our_agents, 3, "Our agents should be correct");
+    assert_eq!(summary.waiting_for_input, 2, "Waiting agents should be correct");
+    assert_eq!(summary.spawned_by_us, 3, "Our agents should be correct");
+    assert_eq!(summary.total_cpu_usage, 10.5, "Total CPU usage should be correct");
+    assert_eq!(summary.total_memory_usage, 1024000, "Total memory usage should be correct");
     assert_eq!(summary.agent_types.len(), 0, "Agent types should be empty");
-    assert_eq!(summary.worktree_distribution.len(), 0, "Worktree distribution should be empty");
     
     Ok(())
 }
