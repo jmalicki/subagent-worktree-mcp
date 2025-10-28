@@ -72,9 +72,9 @@ impl DocGenerator {
         doc.push_str(&format!("{}\n\n", description));
 
         // Parse the JSON schema to extract parameters
-        if let Ok(schema) = serde_json::from_str::<serde_json::Value>(schema_json) {
-            if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
-                if !properties.is_empty() {
+        if let Ok(schema) = serde_json::from_str::<serde_json::Value>(schema_json)
+            && let Some(properties) = schema.get("properties").and_then(|p| p.as_object())
+                && !properties.is_empty() {
                     doc.push_str("**Parameters:**\n");
 
                     let required_fields = schema
@@ -108,10 +108,8 @@ impl DocGenerator {
                             ));
                         }
                     }
-                    doc.push_str("\n");
+                    doc.push('\n');
                 }
-            }
-        }
 
         doc
     }

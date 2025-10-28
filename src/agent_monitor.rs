@@ -32,6 +32,7 @@ pub struct AgentProcessInfo {
 
 /// Configuration for monitoring agents
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AgentMonitorConfig {
     /// Only show agents spawned by our system
     pub only_our_agents: bool,
@@ -43,16 +44,6 @@ pub struct AgentMonitorConfig {
     pub worktree_paths: Option<Vec<String>>,
 }
 
-impl Default for AgentMonitorConfig {
-    fn default() -> Self {
-        Self {
-            only_our_agents: false,
-            only_waiting_agents: false,
-            agent_types: None,
-            worktree_paths: None,
-        }
-    }
-}
 
 /// Monitors running agent processes and their status
 pub struct AgentMonitor {
@@ -106,11 +97,10 @@ impl AgentMonitor {
                     continue;
                 }
 
-                if let Some(ref agent_types) = config.agent_types {
-                    if !agent_types.contains(&agent_info.name) {
+                if let Some(ref agent_types) = config.agent_types
+                    && !agent_types.contains(&agent_info.name) {
                         continue;
                     }
-                }
 
                 if let Some(ref worktree_paths) = config.worktree_paths {
                     if let Some(ref agent_worktree) = agent_info.worktree_path {
@@ -211,7 +201,7 @@ impl AgentMonitor {
         #[cfg(unix)]
         {
             use std::fs;
-            use std::io::Read;
+            
 
             // Check if stdin is a terminal (TTY)
             let stdin_path = format!("/proc/{}/fd/0", pid);
@@ -231,7 +221,7 @@ impl AgentMonitor {
     /// Determine if a process was spawned by our system
     fn is_spawned_by_us(&self, cmd: &[String], cwd: &str) -> bool {
         // Check if the working directory is a worktree of our repository
-        if let Some(worktree_path) = self.find_associated_worktree(cwd) {
+        if let Some(_worktree_path) = self.find_associated_worktree(cwd) {
             // Check if the command contains our typical agent spawning patterns
             let cmd_str = cmd.join(" ");
 
@@ -254,12 +244,11 @@ impl AgentMonitor {
         let dir_path = std::path::Path::new(dir);
 
         // Check if this directory is a worktree of our repository
-        if let Some(parent) = dir_path.parent() {
-            if parent.parent() == Some(self.repo_path.parent().unwrap_or(&self.repo_path)) {
+        if let Some(parent) = dir_path.parent()
+            && parent.parent() == Some(self.repo_path.parent().unwrap_or(&self.repo_path)) {
                 // This looks like a worktree directory
                 return Some(dir.to_string());
             }
-        }
 
         None
     }
@@ -272,11 +261,10 @@ impl AgentMonitor {
         self.tracked_agents.clear();
 
         for (pid, process) in self.system.processes() {
-            if self.is_agent_process(process) {
-                if let Ok(agent_info) = self.create_agent_info(pid.as_u32(), process) {
+            if self.is_agent_process(process)
+                && let Ok(agent_info) = self.create_agent_info(pid.as_u32(), process) {
                     self.tracked_agents.insert(pid.as_u32(), agent_info);
                 }
-            }
         }
 
         debug!(
@@ -290,11 +278,10 @@ impl AgentMonitor {
     pub async fn get_agent_details(&mut self, pid: u32) -> Result<Option<AgentProcessInfo>> {
         self.refresh().await?;
 
-        if let Some(process) = self.system.process(sysinfo::Pid::from_u32(pid)) {
-            if self.is_agent_process(process) {
+        if let Some(process) = self.system.process(sysinfo::Pid::from_u32(pid))
+            && self.is_agent_process(process) {
                 return Ok(Some(self.create_agent_info(pid, process)?));
             }
-        }
 
         Ok(None)
     }
