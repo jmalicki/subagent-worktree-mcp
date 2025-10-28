@@ -1,0 +1,77 @@
+[tasks.build-release]
+description = "Build subagent-worktree-mcp in release mode"
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.test]
+description = "Run all tests"
+command = "cargo"
+args = ["test", "--all-features"]
+
+[tasks.test-integration]
+description = "Run integration tests only"
+command = "cargo"
+args = ["test", "--test", "integration_tests", "--all-features"]
+
+[tasks.clippy]
+description = "Run clippy with centralized configuration"
+command = "cargo"
+args = ["clippy", "--all-targets", "--all-features"]
+
+[tasks.fmt]
+description = "Format all code"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.check]
+description = "Check code without building"
+command = "cargo"
+args = ["check", "--all-targets", "--all-features"]
+
+[tasks.doc]
+description = "Build documentation"
+command = "cargo"
+args = ["doc", "--document-private-items", "--no-deps", "--all-features"]
+
+[tasks.audit]
+description = "Run security audit"
+command = "cargo"
+args = ["audit"]
+
+[tasks.outdated]
+description = "Check for outdated dependencies"
+command = "cargo"
+args = ["outdated", "--depth", "1"]
+
+[tasks.deny-check]
+description = "Run cargo-deny checks"
+command = "cargo"
+args = ["deny", "check"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+command = "cargo"
+args = ["clean"]
+
+[tasks.run-demo]
+description = "Run the demo subagent spawning"
+command = "cargo"
+args = ["run", "--release"]
+
+[tasks.pre-commit]
+description = "Run pre-commit hooks"
+command = "pre-commit"
+args = ["run", "--all-files"]
+
+[tasks.pre-commit-install]
+description = "Install pre-commit hooks"
+command = "pre-commit"
+args = ["install"]
+
+[tasks.quality-check]
+description = "Run all quality checks (fmt, clippy, test, audit)"
+dependencies = ["fmt", "clippy", "test", "audit"]
+
+[tasks.full-check]
+description = "Run comprehensive checks (quality + deny + outdated)"
+dependencies = ["quality-check", "deny-check", "outdated"]

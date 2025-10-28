@@ -1,0 +1,95 @@
+[package]
+name = "subagent-worktree-mcp"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90.0"
+authors = ["Joseph Malicki <joseph.malicki@example.com>"]
+description = "MCP server for spawning subagents with git worktrees - AI agent coordination and development environment management"
+license = "MIT"
+repository = "https://github.com/jmalicki/subagent-worktree-mcp"
+keywords = ["mcp", "agent", "worktree", "git", "subagent", "development", "ai"]
+categories = ["command-line-utilities", "development-tools", "asynchronous"]
+readme = "README.md"
+
+# Workspace-wide lints configuration for high code quality standards
+[workspace.lints.rust]
+# Our MSRV (1.90.0) fully supports async fn in trait (stable since 1.75.0)
+async-fn-in-trait = "allow"
+
+[workspace.lints.clippy]
+# Complexity and code quality lints
+too-many-arguments = "warn"
+too-many-lines = "warn"
+many-single-char-names = "warn"
+
+# Correctness and best practices
+unwrap-used = "warn"
+expect-used = "warn"
+panic = "warn"
+
+# Documentation
+missing-docs-in-private-items = "allow"
+missing-errors-doc = "warn"
+missing-panics-doc = "warn"
+
+# Apply workspace lints to the main package
+[lints]
+workspace = true
+
+[dependencies]
+# MCP (Model Context Protocol) dependencies - removed for now
+# mcp = "0.1.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Git operations
+git2 = "0.19"
+
+# Process spawning and management
+which = "6.0"
+
+# Sophisticated process management - removed for now
+# sopht = "0.1"
+
+# Async trait support
+async-trait = "0.1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Path handling
+pathdiff = "0.2"
+
+# Process monitoring and management
+sysinfo = "0.30"
+
+# Collections for custom options
+indexmap = { version = "2.0", features = ["serde"] }
+
+[dev-dependencies]
+# Testing
+tempfile = "3.0"
+assert_cmd = "2.0"
+predicates = "3.0"
+rstest = "0.26"
+
+# Documentation and linting
+mdbook = "0.4"
+cargo-make = "0.37"
+cargo-audit = "0.21"
+
+# Performance testing
+criterion = { version = "0.7", features = ["html_reports"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.bench]
+inherits = "release"
