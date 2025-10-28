@@ -4,12 +4,8 @@ use std::path::PathBuf;
 use tracing::{debug, info, warn};
 use tokio::fs;
 
-mod git_operations;
-mod subagent_spawner;
-mod agent_monitor;
-
-use git_operations::GitWorktreeManager;
-use subagent_spawner::{SubagentSpawner, CursorCliAgent, AgentOptions};
+use crate::git_operations::GitWorktreeManager;
+use crate::subagent_spawner::{SubagentSpawner, CursorCliAgent, AgentOptions};
 
 /// Configuration for spawning a subagent
 #[derive(Debug, Serialize, Deserialize)]
@@ -137,7 +133,7 @@ impl SubagentWorktreeServer {
 
     /// Kill agents running in a specific worktree
     async fn kill_agents_in_worktree(&self, worktree_path: &std::path::Path, force: bool) -> Result<()> {
-        use agent_monitor::{AgentMonitor, AgentMonitorConfig};
+        use crate::agent_monitor::{AgentMonitor, AgentMonitorConfig};
         
         let mut monitor = AgentMonitor::new(std::env::current_dir()?);
         let config = AgentMonitorConfig {

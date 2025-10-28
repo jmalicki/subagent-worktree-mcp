@@ -11,6 +11,19 @@ keywords = ["mcp", "agent", "worktree", "git", "subagent", "development", "ai"]
 categories = ["command-line-utilities", "development-tools", "asynchronous"]
 readme = "README.md"
 
+# Both binary and library targets
+[[bin]]
+name = "subagent-worktree-mcp"
+path = "src/main.rs"
+
+[[bin]]
+name = "doc-gen"
+path = "src/bin/doc-gen.rs"
+
+[lib]
+name = "subagent_worktree_mcp"
+path = "src/lib.rs"
+
 # Workspace-wide lints configuration for high code quality standards
 [workspace.lints.rust]
 # Our MSRV (1.90.0) fully supports async fn in trait (stable since 1.75.0)
@@ -69,6 +82,9 @@ sysinfo = "0.30"
 
 # Collections for custom options
 indexmap = { version = "2.0", features = ["serde"] }
+
+# CLI argument parsing for documentation generator
+clap = { version = "4.0", features = ["derive"] }
 
 [dev-dependencies]
 # Testing
