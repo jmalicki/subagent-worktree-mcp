@@ -30,13 +30,8 @@ impl DocGenerator {
     fn generate_tool_documentation(tool: &Tool) -> String {
         let mut doc = String::new();
         
-        // Tool header with destructive warning if applicable
-        let is_destructive = tool.name == "cleanup_worktree";
-        if is_destructive {
-            doc.push_str(&format!("### `{}` ⚠️ **DESTRUCTIVE**\n\n", tool.name));
-        } else {
-            doc.push_str(&format!("### `{}`\n\n", tool.name));
-        }
+        // Tool header
+        doc.push_str(&format!("### `{}`\n\n", tool.name));
 
         // Description
         if let Some(description) = &tool.description {
@@ -78,15 +73,6 @@ impl DocGenerator {
                     doc.push_str("\n");
                 }
             }
-        }
-
-        // Destructive warnings
-        if is_destructive {
-            doc.push_str("**⚠️ Warning:** This tool is destructive and will:\n");
-            doc.push_str("- Kill running agent processes\n");
-            doc.push_str("- Remove the worktree directory\n");
-            doc.push_str("- Optionally delete the git branch\n");
-            doc.push_str("- Cannot be undone\n\n");
         }
 
         doc
@@ -169,9 +155,6 @@ impl DocGenerator {
                 }
             }
             
-            if tool.name == "cleanup_worktree" {
-                println!("   ⚠️ DESTRUCTIVE TOOL");
-            }
             println!("");
         }
     }
