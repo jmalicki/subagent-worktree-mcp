@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Stdio;
@@ -11,19 +12,20 @@ use tracing::{debug, error, info, warn};
 pub trait AgentSpawner: Send + Sync {
     /// Check if this agent type is available on the system
     async fn is_available(&self) -> Result<bool>;
-    
+
     /// Spawn the agent in the specified directory with the given prompt
-    async fn spawn(&self, worktree_path: &Path, prompt: &str, options: &AgentOptions) -> Result<()>;
-    
+    async fn spawn(&self, worktree_path: &Path, prompt: &str, options: &AgentOptions)
+    -> Result<()>;
+
     /// Get information about this agent type
     async fn get_info(&self) -> Result<AgentInfo>;
-    
+
     /// Get the name of this agent type
     fn name(&self) -> &'static str;
 }
 
 /// Configuration options for agent spawning
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AgentOptions {
     /// Whether to open in a new window/instance
     pub new_window: bool,
@@ -32,7 +34,7 @@ pub struct AgentOptions {
     /// Whether to detach the process (don't wait for completion)
     pub detach: bool,
     /// Additional custom options specific to the agent type
-    pub custom_options: indexmap::IndexMap<String, String>,
+    pub custom_options: std::collections::HashMap<String, String>,
 }
 
 impl Default for AgentOptions {
@@ -41,7 +43,7 @@ impl Default for AgentOptions {
             new_window: true,
             wait: true,
             detach: false,
-            custom_options: indexmap::IndexMap::new(),
+            custom_options: std::collections::HashMap::new(),
         }
     }
 }
@@ -58,6 +60,7 @@ pub struct AgentInfo {
 }
 
 /// Cursor CLI agent implementation
+#[derive(Clone)]
 pub struct CursorCliAgent;
 
 #[async_trait]
@@ -72,17 +75,25 @@ impl AgentSpawner for CursorCliAgent {
         Ok(result.status.success())
     }
 
-    async fn spawn(&self, worktree_path: &Path, prompt: &str, options: &AgentOptions) -> Result<()> {
+    async fn spawn(
+        &self,
+        worktree_path: &Path,
+        prompt: &str,
+        options: &AgentOptions,
+    ) -> Result<()> {
         if !self.is_available().await? {
             return Err(anyhow::anyhow!("cursor-agent is not available in PATH"));
         }
 
-        info!("Spawning cursor-agent in directory: {}", worktree_path.display());
+        info!(
+            "Spawning cursor-agent in directory: {}",
+            worktree_path.display()
+        );
         debug!("Initial prompt: {}", prompt);
 
         // Use standard library process management
         let mut cmd = TokioCommand::new("cursor-agent");
-        
+
         // Add arguments based on options
         if options.new_window {
             cmd.arg("--new-window");
@@ -90,16 +101,16 @@ impl AgentSpawner for CursorCliAgent {
         if options.wait {
             cmd.arg("--wait");
         }
-        
+
         // Add custom options as arguments
         for (key, value) in &options.custom_options {
             cmd.arg(format!("--{}", key));
             cmd.arg(value);
         }
-        
+
         // Add the worktree path
         cmd.arg(worktree_path);
-        
+
         // Set up stdio
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -107,7 +118,8 @@ impl AgentSpawner for CursorCliAgent {
             .current_dir(worktree_path);
 
         // Spawn the process
-        let mut process = cmd.spawn()
+        let mut process = cmd
+            .spawn()
             .context("Failed to spawn cursor-agent process")?;
 
         // Send the initial prompt
@@ -130,7 +142,10 @@ impl AgentSpawner for CursorCliAgent {
                         if status.success() {
                             info!("Detached cursor-agent process completed successfully");
                         } else {
-                            warn!("Detached cursor-agent process exited with non-zero status: {:?}", status.code());
+                            warn!(
+                                "Detached cursor-agent process exited with non-zero status: {:?}",
+                                status.code()
+                            );
                         }
                     }
                     Err(e) => {
@@ -145,12 +160,18 @@ impl AgentSpawner for CursorCliAgent {
                     if status.success() {
                         info!("cursor-agent process completed successfully");
                     } else {
-                        warn!("cursor-agent process exited with non-zero status: {:?}", status.code());
+                        warn!(
+                            "cursor-agent process exited with non-zero status: {:?}",
+                            status.code()
+                        );
                     }
                 }
                 Err(e) => {
                     error!("Error waiting for cursor-agent process: {}", e);
-                    return Err(anyhow::anyhow!("Failed to wait for cursor-agent process: {}", e));
+                    return Err(anyhow::anyhow!(
+                        "Failed to wait for cursor-agent process: {}",
+                        e
+                    ));
                 }
             }
         }
@@ -161,7 +182,7 @@ impl AgentSpawner for CursorCliAgent {
 
     async fn get_info(&self) -> Result<AgentInfo> {
         let available = self.is_available().await?;
-        
+
         let version = if available {
             // Try to get version information
             let version_output = TokioCommand::new("cursor-agent")
@@ -203,9 +224,7 @@ pub struct SubagentSpawner {
 impl SubagentSpawner {
     /// Create a new SubagentSpawner
     pub fn new() -> Result<Self> {
-        Ok(Self {
-            agents: Vec::new(),
-        })
+        Ok(Self { agents: Vec::new() })
     }
 
     /// Register a new agent type
@@ -226,7 +245,9 @@ impl SubagentSpawner {
         prompt: &str,
         options: &AgentOptions,
     ) -> Result<()> {
-        let agent = self.agents.iter()
+        let agent = self
+            .agents
+            .iter()
             .find(|a| a.name() == agent_name)
             .ok_or_else(|| anyhow::anyhow!("Agent '{}' not found", agent_name))?;
 
@@ -236,13 +257,13 @@ impl SubagentSpawner {
     /// List all available agents
     pub async fn list_available_agents(&self) -> Result<Vec<AgentInfo>> {
         let mut available_agents = Vec::new();
-        
+
         for agent in &self.agents {
             if let Ok(info) = agent.get_info().await {
                 available_agents.push(info);
             }
         }
-        
+
         Ok(available_agents)
     }
 }
