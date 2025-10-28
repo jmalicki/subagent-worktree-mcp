@@ -100,6 +100,12 @@ jobs:
         cargo test --test cursor_agent_integration_tests test_cursor_agent_cli -- --nocapture
       continue-on-error: true
     
+    - name: Run E2E MCP tests
+      run: |
+        # Run end-to-end MCP tests
+        cargo test --test e2e_mcp_tests -- --nocapture
+      continue-on-error: true
+    
     - name: Run doc tests
       run: cargo test --all-features --doc
     
@@ -141,6 +147,14 @@ jobs:
       run: |
         # Test basic cursor-agent functionality
         cursor-agent -p "Hello, this is a test prompt" --model gpt-4
+      continue-on-error: true  # Allow to fail if API key is not available
+    
+    - name: Run E2E MCP tests with cursor-agent
+      env:
+        CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      run: |
+        # Run E2E tests that can use cursor-agent if available
+        cargo test --test e2e_mcp_tests test_e2e_complete_workflow -- --nocapture
       continue-on-error: true  # Allow to fail if API key is not available
 
   security:
