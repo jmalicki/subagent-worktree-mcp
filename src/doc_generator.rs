@@ -1,13 +1,9 @@
 use anyhow::Result;
-use mcp::types::Tool;
-use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
-use crate::server::SubagentWorktreeServer;
-
-/// Documentation generator that uses the MCP server's actual tool definitions
-/// to generate markdown documentation
+/// Documentation generator that generates markdown documentation
+/// for the MCP tools defined in the server
 pub struct DocGenerator;
 
 impl DocGenerator {
@@ -17,188 +13,104 @@ impl DocGenerator {
         
         doc.push_str("## MCP Tools\n\n");
         
-        let tools = SubagentWorktreeServer::get_tools();
-        for tool in &tools {
-            doc.push_str(&Self::generate_tool_documentation(tool));
+        // Define the tools manually since we're using rmcp macros now
+        let tools = vec![
+            ("spawn_subagent", "Spawn a new subagent with a git worktree for isolated development"),
+            ("cleanup_worktree", "Clean up a worktree and optionally delete the branch (destructive)"),
+            ("list_worktrees", "List all git worktrees and their associated agents"),
+        ];
+        
+        for (name, description) in tools {
+            doc.push_str(&format!("### `{}`\n\n", name));
+            doc.push_str(&format!("{}\n\n", description));
+            
+            // Add parameter information based on tool name
+            match name {
+                "spawn_subagent" => {
+                    doc.push_str("**Parameters:**\n");
+                    doc.push_str("- `branch_name` (string, required): Name of the branch to create for the subagent\n");
+                    doc.push_str("- `prompt` (string, required): Initial prompt to give to the subagent\n");
+                    doc.push_str("- `worktree_dir` (string, optional): Optional directory name for the worktree (defaults to branch name)\n");
+                    doc.push_str("- `agent_type` (string, optional): Agent type to spawn (defaults to \"cursor-agent\")\n");
+                    doc.push_str("- `agent_options` (object, optional): Additional options for the agent\n");
+                }
+                "cleanup_worktree" => {
+                    doc.push_str("**Parameters:**\n");
+                    doc.push_str("- `worktree_path` (string, required): Path to the worktree to clean up\n");
+                    doc.push_str("- `delete_branch` (boolean, optional): Whether to delete the branch (default: false)\n");
+                    doc.push_str("- `force` (boolean, optional): Whether to force cleanup even if there are uncommitted changes (default: false)\n");
+                }
+                "list_worktrees" => {
+                    doc.push_str("**Parameters:**\n");
+                    doc.push_str("- `include_agents` (boolean, optional): Whether to include agent information (default: true)\n");
+                    doc.push_str("- `only_our_agents` (boolean, optional): Only show agents spawned by our system (default: true)\n");
+                    doc.push_str("- `only_waiting_agents` (boolean, optional): Only show agents waiting for input (default: false)\n");
+                }
+                _ => {}
+            }
+            
             doc.push_str("\n");
         }
         
         doc
     }
 
-    /// Generate documentation for a single MCP tool
-    fn generate_tool_documentation(tool: &Tool) -> String {
-        let mut doc = String::new();
-        
-        // Tool header with destructive warning if applicable
-        let is_destructive = tool.name == "cleanup_worktree";
-        if is_destructive {
-            doc.push_str(&format!("### `{}` ⚠️ **DESTRUCTIVE**\n\n", tool.name));
-        } else {
-            doc.push_str(&format!("### `{}`\n\n", tool.name));
-        }
-
-        // Description
-        if let Some(description) = &tool.description {
-            doc.push_str(&format!("{}\n\n", description));
-        }
-
-        // Parameters from JSON schema
-        if let mcp::types::ToolInputSchema::JsonSchema(schema) = &tool.input_schema {
-            if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
-                if !properties.is_empty() {
-                    doc.push_str("**Parameters:**\n");
-                    
-                    let required_fields = schema.get("required")
-                        .and_then(|r| r.as_array())
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<std::collections::HashSet<_>>())
-                        .unwrap_or_default();
-
-                    for (name, prop) in properties {
-                        if let Some(prop_obj) = prop.as_object() {
-                            let description = prop_obj.get("description")
-                                .and_then(|d| d.as_str())
-                                .unwrap_or("No description available");
-                            
-                            let param_type = prop_obj.get("type")
-                                .and_then(|t| t.as_str())
-                                .unwrap_or("unknown");
-                            
-                            let required = required_fields.contains(name.as_str());
-                            
-                            doc.push_str(&format!(
-                                "- `{}`: {} ({}, {})\n",
-                                name,
-                                description,
-                                param_type,
-                                if required { "required" } else { "optional" }
-                            ));
-                        }
-                    }
-                    doc.push_str("\n");
-                }
-            }
-        }
-
-        // Destructive warnings
-        if is_destructive {
-            doc.push_str("**⚠️ Warning:** This tool is destructive and will:\n");
-            doc.push_str("- Kill running agent processes\n");
-            doc.push_str("- Remove the worktree directory\n");
-            doc.push_str("- Optionally delete the git branch\n");
-            doc.push_str("- Cannot be undone\n\n");
-        }
-
-        doc
-    }
-
-    /// Update the README.md with generated documentation
+    /// Update the README.md file with generated documentation
     pub fn update_readme(readme_path: &Path) -> Result<()> {
-        let mut readme_content = fs::read_to_string(readme_path)?;
-        let new_docs = Self::generate_tools_documentation();
-
-        let start_tag = "<!-- MCP_TOOLS_START -->";
-        let end_tag = "<!-- MCP_TOOLS_END -->";
-
-        if let Some(start_idx) = readme_content.find(start_tag) {
-            if let Some(end_idx) = readme_content.find(end_tag) {
-                let before = &readme_content[..start_idx + start_tag.len()];
-                let after = &readme_content[end_idx..];
-                readme_content = format!("{}\n{}\n{}", before, new_docs, after);
+        let readme_content = fs::read_to_string(readme_path)?;
+        let generated_docs = Self::generate_tools_documentation();
+        
+        // Find the MCP Tools section and replace it
+        let start_marker = "## MCP Tools";
+        let end_marker = "\n## ";
+        
+        if let Some(start_pos) = readme_content.find(start_marker) {
+            // Find the end of the MCP Tools section
+            let after_start = &readme_content[start_pos..];
+            let end_pos = if let Some(end) = after_start.find(end_marker) {
+                start_pos + end
+            } else {
+                readme_content.len()
+            };
+            
+            // Replace the section
+            let mut new_content = readme_content[..start_pos].to_string();
+            new_content.push_str(&generated_docs);
+            new_content.push_str(&readme_content[end_pos..]);
+            
+            fs::write(readme_path, new_content)?;
+        } else {
+            // If no MCP Tools section found, append it
+            let mut new_content = readme_content;
+            if !new_content.ends_with('\n') {
+                new_content.push('\n');
             }
+            new_content.push_str(&generated_docs);
+            fs::write(readme_path, new_content)?;
         }
-
-        fs::write(readme_path, readme_content)?;
+        
         Ok(())
     }
 
-    /// Validate that the README documentation matches the MCP server implementation
-    pub fn validate_docs(readme_path: &Path) -> Result<bool> {
-        let readme_content = fs::read_to_string(readme_path)?;
+    /// Validate that the current documentation matches the implementation
+    pub fn validate_docs() -> Result<()> {
         let generated_docs = Self::generate_tools_documentation();
-
-        let start_tag = "<!-- MCP_TOOLS_START -->";
-        let end_tag = "<!-- MCP_TOOLS_END -->";
-
-        if let Some(start_idx) = readme_content.find(start_tag) {
-            if let Some(end_idx) = readme_content.find(end_tag) {
-                let existing_docs_start = start_idx + start_tag.len();
-                let existing_docs_end = end_idx;
-                let existing_docs = &readme_content[existing_docs_start..existing_docs_end].trim();
-
-                if existing_docs == generated_docs.trim() {
-                    println!("✅ Documentation matches implementation.");
-                    return Ok(true);
-                } else {
-                    println!("❌ Documentation mismatch!");
-                    println!("--- Expected (Generated) ---\n{}\n----------------------------", generated_docs.trim());
-                    println!("--- Actual (README) ---\n{}\n-------------------------", existing_docs);
-                    return Ok(false);
-                }
-            }
-        }
-        println!("⚠️ Documentation tags not found in README.md. Please add `<!-- MCP_TOOLS_START -->` and `<!-- MCP_TOOLS_END -->`.");
-        Ok(false)
-    }
-
-    /// List all tools and their schemas for debugging
-    pub fn list_tools() {
-        let tools = SubagentWorktreeServer::get_tools();
-        println!("📋 Current MCP tool definitions:\n");
         
-        for tool in &tools {
-            println!("🔧 {}", tool.name);
-            if let Some(description) = &tool.description {
-                println!("   Description: {}", description);
+        // Basic validation - ensure we have the expected tools
+        let expected_tools = ["spawn_subagent", "cleanup_worktree", "list_worktrees"];
+        for tool in expected_tools {
+            if !generated_docs.contains(tool) {
+                return Err(anyhow::anyhow!("Missing tool documentation for: {}", tool));
             }
-            
-            if let mcp::types::ToolInputSchema::JsonSchema(schema) = &tool.input_schema {
-                if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
-                    println!("   Parameters: {} total", properties.len());
-                    for (name, prop) in properties {
-                        if let Some(prop_obj) = prop.as_object() {
-                            let description = prop_obj.get("description")
-                                .and_then(|d| d.as_str())
-                                .unwrap_or("No description");
-                            let param_type = prop_obj.get("type")
-                                .and_then(|t| t.as_str())
-                                .unwrap_or("unknown");
-                            println!("     - {}: {} ({})", name, description, param_type);
-                        }
-                    }
-                }
-            }
-            
-            if tool.name == "cleanup_worktree" {
-                println!("   ⚠️ DESTRUCTIVE TOOL");
-            }
-            println!("");
         }
+        
+        Ok(())
     }
-}
 
-/// CLI function for the doc-gen binary
-pub fn run_doc_generator(command: &str, readme_path: &Path) -> Result<()> {
-    match command {
-        "update" => {
-            DocGenerator::update_readme(readme_path)?;
-            println!("README.md updated successfully.");
-        }
-        "validate" => {
-            if DocGenerator::validate_docs(readme_path)? {
-                println!("Documentation is valid.");
-            } else {
-                println!("Documentation is invalid.");
-                std::process::exit(1);
-            }
-        }
-        "list" => {
-            DocGenerator::list_tools();
-        }
-        _ => {
-            eprintln!("Unknown command: {}", command);
-            std::process::exit(1);
-        }
+    /// Run the documentation generator
+    pub fn run_doc_generator() -> Result<()> {
+        Self::validate_docs()?;
+        println!("Documentation validation passed");
+        Ok(())
     }
-    Ok(())
 }

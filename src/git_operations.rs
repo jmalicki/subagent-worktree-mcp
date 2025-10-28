@@ -109,7 +109,7 @@ impl GitWorktreeManager {
             // Create new branch from base branch
             let base_commit = Self::get_branch_commit(&repo, &base_branch_name)?;
             
-            let branch_ref = repo.branch(branch_name, &base_commit, false)
+            let _branch_ref = repo.branch(branch_name, &base_commit, false)
                 .context("Failed to create new branch")?;
             
             // Checkout the new branch

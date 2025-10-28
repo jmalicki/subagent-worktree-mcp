@@ -179,7 +179,6 @@ impl AgentMonitor {
         #[cfg(unix)]
         {
             use std::fs;
-            use std::io::Read;
             
             // Check if stdin is a terminal (TTY)
             let stdin_path = format!("/proc/{}/fd/0", pid);
@@ -199,7 +198,7 @@ impl AgentMonitor {
     /// Determine if a process was spawned by our system
     fn is_spawned_by_us(&self, cmd: &[String], cwd: &str) -> bool {
         // Check if the working directory is a worktree of our repository
-        if let Some(worktree_path) = self.find_associated_worktree(cwd) {
+        if let Some(_worktree_path) = self.find_associated_worktree(cwd) {
             // Check if the command contains our typical agent spawning patterns
             let cmd_str = cmd.join(" ");
             

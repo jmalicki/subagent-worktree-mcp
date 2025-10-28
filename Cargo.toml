@@ -49,43 +49,22 @@ missing-panics-doc = "warn"
 workspace = true
 
 [dependencies]
-<<<<<<< HEAD
-# MCP (Model Context Protocol) dependencies
-mcp = "0.1.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-anyhow = "1.0"
-thiserror = "1.0"
-=======
 # MCP (Model Context Protocol) dependencies - official SDK
-<<<<<<< HEAD
-rmcp = "0.8.3"
-rmcp-macros = "0.8.3"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-tokio = { version = "1.48.0", features = ["full"] }
-anyhow = "1.0.100"
-thiserror = "2.0.17"
->>>>>>> 3a2b7f5 (chore: update all Cargo dependencies to latest versions)
-=======
-rmcp = "0.8"
+rmcp = { version = "0.8", features = ["client", "server", "macros"] }
 rmcp-macros = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+schemars = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
-thiserror = "2.0"
->>>>>>> 346ffe4 (fix: use proper version constraints in Cargo.toml)
+thiserror = "1.0"
+futures = "0.3"
 
 # Git operations
-git2 = "0.20"
+git2 = "0.19"
 
 # Process spawning and management
 which = "6.0"
-
-# Sophisticated process management - removed for now
-# sopht = "0.1"
 
 # Async trait support
 async-trait = "0.1"

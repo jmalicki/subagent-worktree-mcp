@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Stdio;
@@ -23,7 +24,7 @@ pub trait AgentSpawner: Send + Sync {
 }
 
 /// Configuration options for agent spawning
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AgentOptions {
     /// Whether to open in a new window/instance
     pub new_window: bool,
@@ -32,7 +33,7 @@ pub struct AgentOptions {
     /// Whether to detach the process (don't wait for completion)
     pub detach: bool,
     /// Additional custom options specific to the agent type
-    pub custom_options: indexmap::IndexMap<String, String>,
+    pub custom_options: std::collections::HashMap<String, String>,
 }
 
 impl Default for AgentOptions {
@@ -41,7 +42,7 @@ impl Default for AgentOptions {
             new_window: true,
             wait: true,
             detach: false,
-            custom_options: indexmap::IndexMap::new(),
+            custom_options: std::collections::HashMap::new(),
         }
     }
 }
@@ -64,24 +65,24 @@ pub struct CursorCliAgent;
 impl AgentSpawner for CursorCliAgent {
     async fn is_available(&self) -> Result<bool> {
         let result = TokioCommand::new("which")
-            .arg("cursor-cli")
+            .arg("cursor-agent")
             .output()
             .await
-            .context("Failed to execute 'which cursor-cli' command")?;
+            .context("Failed to execute 'which cursor-agent' command")?;
 
         Ok(result.status.success())
     }
 
     async fn spawn(&self, worktree_path: &Path, prompt: &str, options: &AgentOptions) -> Result<()> {
         if !self.is_available().await? {
-            return Err(anyhow::anyhow!("cursor-cli is not available in PATH"));
+            return Err(anyhow::anyhow!("cursor-agent is not available in PATH"));
         }
 
-        info!("Spawning cursor-cli in directory: {}", worktree_path.display());
+        info!("Spawning cursor-agent in directory: {}", worktree_path.display());
         debug!("Initial prompt: {}", prompt);
 
         // Use standard library process management
-        let mut cmd = TokioCommand::new("cursor-cli");
+        let mut cmd = TokioCommand::new("cursor-agent");
         
         // Add arguments based on options
         if options.new_window {
@@ -108,7 +109,7 @@ impl AgentSpawner for CursorCliAgent {
 
         // Spawn the process
         let mut process = cmd.spawn()
-            .context("Failed to spawn cursor-cli process")?;
+            .context("Failed to spawn cursor-agent process")?;
 
         // Send the initial prompt
         if let Some(mut stdin) = process.stdin.take() {
@@ -116,7 +117,7 @@ impl AgentSpawner for CursorCliAgent {
             tokio::spawn(async move {
                 use tokio::io::AsyncWriteExt;
                 if let Err(e) = stdin.write_all(&prompt_bytes).await {
-                    error!("Failed to write prompt to cursor-cli stdin: {}", e);
+                    error!("Failed to write prompt to cursor-agent stdin: {}", e);
                 }
             });
         }
@@ -128,13 +129,13 @@ impl AgentSpawner for CursorCliAgent {
                 match process.wait().await {
                     Ok(status) => {
                         if status.success() {
-                            info!("Detached cursor-cli process completed successfully");
+                            info!("Detached cursor-agent process completed successfully");
                         } else {
-                            warn!("Detached cursor-cli process exited with non-zero status: {:?}", status.code());
+                            warn!("Detached cursor-agent process exited with non-zero status: {:?}", status.code());
                         }
                     }
                     Err(e) => {
-                        error!("Error waiting for detached cursor-cli process: {}", e);
+                        error!("Error waiting for detached cursor-agent process: {}", e);
                     }
                 }
             });
@@ -143,19 +144,19 @@ impl AgentSpawner for CursorCliAgent {
             match process.wait().await {
                 Ok(status) => {
                     if status.success() {
-                        info!("cursor-cli process completed successfully");
+                        info!("cursor-agent process completed successfully");
                     } else {
-                        warn!("cursor-cli process exited with non-zero status: {:?}", status.code());
+                        warn!("cursor-agent process exited with non-zero status: {:?}", status.code());
                     }
                 }
                 Err(e) => {
-                    error!("Error waiting for cursor-cli process: {}", e);
-                    return Err(anyhow::anyhow!("Failed to wait for cursor-cli process: {}", e));
+                    error!("Error waiting for cursor-agent process: {}", e);
+                    return Err(anyhow::anyhow!("Failed to wait for cursor-agent process: {}", e));
                 }
             }
         }
 
-        info!("Successfully spawned cursor-cli subagent");
+        info!("Successfully spawned cursor-agent subagent");
         Ok(())
     }
 
@@ -164,7 +165,7 @@ impl AgentSpawner for CursorCliAgent {
         
         let version = if available {
             // Try to get version information
-            let version_output = TokioCommand::new("cursor-cli")
+            let version_output = TokioCommand::new("cursor-agent")
                 .arg("--version")
                 .output()
                 .await
@@ -191,7 +192,7 @@ impl AgentSpawner for CursorCliAgent {
     }
 
     fn name(&self) -> &'static str {
-        "cursor-cli"
+        "cursor-agent"
     }
 }
 

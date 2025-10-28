@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use subagent_worktree_mcp::doc_generator::{DocGenerator, run_doc_generator};
+use subagent_worktree_mcp::doc_generator::DocGenerator;
 
 /// Documentation generator for Subagent Worktree MCP Server
 /// 
@@ -52,16 +52,14 @@ async fn main() -> Result<()> {
         Commands::Update { readme, report } => {
             println!("🔄 Updating documentation from schema...");
             
-            let generator = DocGenerator::new();
-            
             // Validate implementation first
-            generator.validate_implementation()?;
+            DocGenerator::validate_docs()?;
             
             // Update README
-            generator.update_readme(std::path::Path::new(&readme))?;
+            DocGenerator::update_readme(std::path::Path::new(&readme))?;
             
             if report {
-                let report_content = generator.generate_schema_report();
+                let report_content = DocGenerator::generate_tools_documentation();
                 std::fs::write("SCHEMA_REPORT.md", report_content)?;
                 println!("📊 Generated SCHEMA_REPORT.md");
             }
@@ -72,8 +70,7 @@ async fn main() -> Result<()> {
         Commands::Validate => {
             println!("🔍 Validating documentation against implementation...");
             
-            let generator = DocGenerator::new();
-            generator.validate_implementation()?;
+            DocGenerator::validate_docs()?;
             
             println!("✅ All documentation is valid!");
         }
@@ -81,8 +78,7 @@ async fn main() -> Result<()> {
         Commands::Report { output } => {
             println!("📊 Generating schema report...");
             
-            let generator = DocGenerator::new();
-            let report_content = generator.generate_schema_report();
+            let report_content = DocGenerator::generate_tools_documentation();
             
             std::fs::write(&output, report_content)?;
             println!("✅ Schema report generated: {}", output);
@@ -90,27 +86,11 @@ async fn main() -> Result<()> {
         
         Commands::List => {
             println!("📋 Current tool definitions:");
-            
-            let generator = DocGenerator::new();
-            
-            for tool in &generator.tools {
-                println!("\n🔧 {}", tool.name);
-                println!("   Description: {}", tool.description);
-                println!("   Destructive: {}", tool.is_destructive);
-                println!("   Parameters: {} total", tool.parameters.len());
-                
-                for param in &tool.parameters {
-                    let required = if param.required { "required" } else { "optional" };
-                    println!("     - {}: {} ({})", param.name, required, param.param_type);
-                }
-                
-                if !tool.warnings.is_empty() {
-                    println!("   Warnings:");
-                    for warning in &tool.warnings {
-                        println!("     - {}", warning);
-                    }
-                }
-            }
+            println!("Available tools:");
+            println!("  - spawn_subagent: Spawn a new subagent with a git worktree for isolated development");
+            println!("  - cleanup_worktree: Clean up a worktree and optionally delete the branch (destructive)");
+            println!("  - list_worktrees: List all git worktrees and their associated agents");
+            println!("\nUse 'cargo run --bin doc-gen report' to generate detailed schema documentation.");
         }
     }
     
