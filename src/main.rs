@@ -1,5 +1,11 @@
 use anyhow::{Context, Result};
+use mcp::server::{McpServer, RequestHandler};
+use mcp::types::{
+    CallToolRequest, CallToolResult, ListToolsRequest, ListToolsResult, 
+    Tool, ToolInputSchema, TextContent, ImageContent, EmbeddedResource
+};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use tracing::{info, warn};
 
@@ -209,6 +215,183 @@ impl SubagentWorktreeServer {
 
         Ok(result)
     }
+
+    /// Get the list of available tools with their JSON schemas
+    pub fn get_tools() -> Vec<Tool> {
+        vec![
+            Tool {
+                name: "spawn_subagent".to_string(),
+                description: Some("Spawn a new subagent with a git worktree for isolated development".to_string()),
+                input_schema: ToolInputSchema::JsonSchema(json!({
+                    "type": "object",
+                    "properties": {
+                        "branch_name": {
+                            "type": "string",
+                            "description": "Name of the branch to create for the subagent"
+                        },
+                        "prompt": {
+                            "type": "string", 
+                            "description": "Initial prompt to give to the new subagent"
+                        },
+                        "base_branch": {
+                            "type": "string",
+                            "description": "Base branch to create from (optional, defaults to current branch)"
+                        },
+                        "worktree_dir": {
+                            "type": "string",
+                            "description": "Custom worktree directory name (optional, defaults to branch_name)"
+                        },
+                        "agent_type": {
+                            "type": "string",
+                            "description": "Type of agent to spawn (optional, defaults to 'cursor-cli')",
+                            "enum": ["cursor-cli", "vscode", "vim", "neovim"]
+                        },
+                        "agent_options": {
+                            "type": "object",
+                            "description": "Agent-specific options",
+                            "properties": {
+                                "new_window": {
+                                    "type": "boolean",
+                                    "description": "Open in new window"
+                                },
+                                "wait": {
+                                    "type": "boolean", 
+                                    "description": "Wait for process completion"
+                                },
+                                "detach": {
+                                    "type": "boolean",
+                                    "description": "Detach process"
+                                },
+                                "custom_options": {
+                                    "type": "object",
+                                    "description": "Custom options as key-value pairs"
+                                }
+                            }
+                        }
+                    },
+                    "required": ["branch_name", "prompt"]
+                }))
+            },
+            Tool {
+                name: "monitor_agents".to_string(),
+                description: Some("Monitor running agent processes and their status".to_string()),
+                input_schema: ToolInputSchema::JsonSchema(json!({
+                    "type": "object",
+                    "properties": {
+                        "only_our_agents": {
+                            "type": "boolean",
+                            "description": "Only show agents we spawned (optional)"
+                        },
+                        "only_waiting_agents": {
+                            "type": "boolean",
+                            "description": "Only show agents waiting for input (optional)"
+                        },
+                        "agent_types": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Filter by agent types (optional)"
+                        },
+                        "worktree_paths": {
+                            "type": "array", 
+                            "items": {"type": "string"},
+                            "description": "Filter by worktree paths (optional)"
+                        }
+                    }
+                }))
+            },
+            Tool {
+                name: "cleanup_worktree".to_string(),
+                description: Some("⚠️ DESTRUCTIVE: Clean up a worktree and optionally kill running agents and remove the branch".to_string()),
+                input_schema: ToolInputSchema::JsonSchema(json!({
+                    "type": "object",
+                    "properties": {
+                        "worktree_name": {
+                            "type": "string",
+                            "description": "Name of the worktree/branch to clean up"
+                        },
+                        "force": {
+                            "type": "boolean",
+                            "description": "Force cleanup even if agents are still running (optional)"
+                        },
+                        "remove_branch": {
+                            "type": "boolean",
+                            "description": "Remove the git branch after cleanup (optional)"
+                        },
+                        "kill_agents": {
+                            "type": "boolean",
+                            "description": "Kill running agents before cleanup (optional)"
+                        }
+                    },
+                    "required": ["worktree_name"]
+                }))
+            },
+            Tool {
+                name: "list_worktrees".to_string(),
+                description: Some("List all worktrees and their current status".to_string()),
+                input_schema: ToolInputSchema::JsonSchema(json!({
+                    "type": "object",
+                    "properties": {},
+                    "description": "No parameters required"
+                }))
+            }
+        ]
+    }
+}
+
+impl RequestHandler for SubagentWorktreeServer {
+    async fn list_tools(&self, _request: ListToolsRequest) -> Result<ListToolsResult> {
+        Ok(ListToolsResult {
+            tools: Self::get_tools(),
+        })
+    }
+
+    async fn call_tool(&self, request: CallToolRequest) -> Result<CallToolResult> {
+        match request.name.as_str() {
+            "spawn_subagent" => {
+                let config: SubagentConfig = serde_json::from_value(request.arguments)?;
+                let result = self.handle_spawn_subagent(config).await?;
+                Ok(CallToolResult {
+                    content: vec![TextContent {
+                        text: result,
+                        r#type: "text".to_string(),
+                    }],
+                    is_error: false,
+                })
+            }
+            "monitor_agents" => {
+                // TODO: Implement agent monitoring
+                Ok(CallToolResult {
+                    content: vec![TextContent {
+                        text: "Agent monitoring not yet implemented".to_string(),
+                        r#type: "text".to_string(),
+                    }],
+                    is_error: false,
+                })
+            }
+            "cleanup_worktree" => {
+                let config: CleanupConfig = serde_json::from_value(request.arguments)?;
+                let result = self.handle_cleanup_worktree(config).await?;
+                Ok(CallToolResult {
+                    content: vec![TextContent {
+                        text: result,
+                        r#type: "text".to_string(),
+                    }],
+                    is_error: false,
+                })
+            }
+            "list_worktrees" => {
+                let result = self.list_worktrees().await?;
+                Ok(CallToolResult {
+                    content: vec![TextContent {
+                        text: result,
+                        r#type: "text".to_string(),
+                    }],
+                    is_error: false,
+                })
+            }
+            _ => Err(anyhow::anyhow!("Unknown tool: {}", request.name))
+        }
+    }
 }
 
 #[tokio::main]
@@ -225,39 +408,17 @@ async fn main() -> Result<()> {
     // Create the server
     let server = SubagentWorktreeServer::new(repo_path)?;
 
-    // For now, just demonstrate the functionality
-    let config = SubagentConfig {
-        branch_name: "demo-branch".to_string(),
-        base_branch: None,
-        prompt: "Hello, this is a demo subagent!".to_string(),
-        worktree_dir: None,
-        agent_type: Some("cursor-cli".to_string()),
-        agent_options: Some(AgentOptions::default()),
-    };
-
-    let result = server.handle_spawn_subagent(config).await?;
-    info!("Result: {}", result);
-
-    // Demonstrate cleanup tool (commented out for safety)
-    /*
-    let cleanup_config = CleanupConfig {
-        worktree_name: "demo-branch".to_string(),
-        force: false,
-        remove_branch: true,
-        kill_agents: true,
-    };
+    // Start the MCP server
+    let mut mcp_server = McpServer::new(server);
     
-    let cleanup_result = server.handle_cleanup_worktree(cleanup_config).await?;
-    info!("Cleanup result: {}", cleanup_result);
-    */
+    info!("MCP server started with tools:");
+    let tools = SubagentWorktreeServer::get_tools();
+    for tool in &tools {
+        info!("  - {}: {}", tool.name, tool.description.as_deref().unwrap_or("No description"));
+    }
 
-    // TODO: When implementing full MCP server, register these tools:
-    // 1. spawn_subagent - Creates worktree and spawns agent
-    // 2. monitor_agents - Lists running agents in worktrees  
-    // 3. cleanup_worktree - DESTRUCTIVE: Kills agents and removes worktree
-    // 4. list_worktrees - Shows all worktrees and their status
-    
-    info!("MCP server ready with tools: spawn_subagent, monitor_agents, cleanup_worktree, list_worktrees");
+    // Run the MCP server
+    mcp_server.run().await?;
 
     Ok(())
 }
