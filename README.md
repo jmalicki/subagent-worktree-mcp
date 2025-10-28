@@ -17,6 +17,7 @@ A Model Context Protocol (MCP) server for spawning subagents with git worktrees.
 - Rust 1.90.0+ (2024 Edition)
 - Git
 - One or more supported agents (cursor-cli, VS Code, etc.)
+- MCP-compatible AI agent (Claude Desktop, Cursor, etc.)
 
 ### Installation
 
@@ -26,10 +27,28 @@ cd subagent-worktree-mcp
 cargo build --release
 ```
 
-### Basic Usage
+### MCP Integration
+
+1. **Configure your MCP client** (e.g., Claude Desktop) to use this server:
+
+```json
+{
+  "mcpServers": {
+    "subagent-worktree": {
+      "command": "cargo",
+      "args": ["run", "--release"],
+      "cwd": "/path/to/subagent-worktree-mcp"
+    }
+  }
+}
+```
+
+2. **Use the tools** through your MCP client to spawn subagents and manage worktrees.
+
+### Direct Testing (Development)
 
 ```bash
-# Run the MCP server
+# Run the MCP server directly for testing
 cargo run
 
 # Or build and run the release version
@@ -53,27 +72,57 @@ cargo build --release
 - **Vim/Neovim**: Terminal-based editors
 - **Extensible**: Easy to add new agent types
 
-## Configuration
+## MCP Protocol Usage
 
-### Agent Options
+This server implements the Model Context Protocol (MCP) and provides tools for AI agents to manage git worktrees and spawn subagents.
 
-```rust
-pub struct AgentOptions {
-    pub new_window: bool,           // Open in new window
-    pub wait: bool,                 // Wait for process completion
-    pub detach: bool,               // Detach process
-    pub custom_options: IndexMap<String, String>, // Custom options
+### MCP Server Configuration
+
+```json
+{
+  "mcpServers": {
+    "subagent-worktree": {
+      "command": "cargo",
+      "args": ["run", "--release"],
+      "cwd": "/path/to/subagent-worktree-mcp"
+    }
+  }
 }
 ```
 
-### Monitor Configuration
+### Example MCP Tool Calls
 
-```rust
-pub struct AgentMonitorConfig {
-    pub only_our_agents: bool,      // Only show agents we spawned
-    pub only_waiting_agents: bool,  // Only show agents waiting for input
-    pub agent_types: Option<Vec<String>>, // Filter by agent type
-    pub worktree_paths: Option<Vec<String>>, // Filter by worktree
+#### Spawn a Subagent
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "spawn_subagent",
+    "arguments": {
+      "branch_name": "feature/new-feature",
+      "prompt": "Implement user authentication system",
+      "base_branch": "main",
+      "agent_type": "cursor-cli",
+      "agent_options": {
+        "new_window": true,
+        "detach": false
+      }
+    }
+  }
+}
+```
+
+#### Monitor Running Agents
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "monitor_agents",
+    "arguments": {
+      "only_our_agents": true,
+      "only_waiting_agents": false
+    }
+  }
 }
 ```
 

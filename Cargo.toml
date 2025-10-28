@@ -26,8 +26,7 @@ path = "src/lib.rs"
 
 # Workspace-wide lints configuration for high code quality standards
 [workspace.lints.rust]
-# Our MSRV (1.90.0) fully supports async fn in trait (stable since 1.75.0)
-async-fn-in-trait = "allow"
+# No special rust lints needed - using standard Rust 1.90.0 features
 
 [workspace.lints.clippy]
 # Complexity and code quality lints
