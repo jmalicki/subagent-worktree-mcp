@@ -3,10 +3,24 @@ use assert_cmd::Command as AssertCommand;
 use predicates::prelude::*;
 use std::fs;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::TempDir;
 
 use subagent_worktree_mcp::git_operations::GitWorktreeManager;
 use subagent_worktree_mcp::subagent_spawner::{SubagentSpawner, AgentOptions};
+
+/// Generate a unique branch name for testing to avoid parallel execution conflicts
+fn unique_branch_name(prefix: &str) -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{}-{}-{}", prefix, timestamp, counter)
+}
 
 /// Test helper to create a temporary git repository
 fn create_temp_git_repo() -> Result<(TempDir, std::path::PathBuf)> {
@@ -81,7 +95,6 @@ async fn test_is_git_repo() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test has issues with branch name conflicts in parallel execution"]
 async fn test_create_worktree_basic() -> Result<()> {
     // Test: Verify that basic worktree creation works correctly
     // This test ensures the core functionality of creating a new worktree from current branch
@@ -89,8 +102,10 @@ async fn test_create_worktree_basic() -> Result<()> {
     let (_temp_dir, repo_path) = create_temp_git_repo()?;
     let manager = GitWorktreeManager::new(repo_path)?;
     
+    let branch_name = unique_branch_name("test-branch");
+    
     // Create a worktree
-    let worktree_path = manager.create_worktree("test-branch", None, None).await?;
+    let worktree_path = manager.create_worktree(&branch_name, None, None).await?;
     
     // Verify worktree directory exists
     assert!(worktree_path.exists(), "Worktree directory should exist");
@@ -112,7 +127,6 @@ async fn test_create_worktree_basic() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test has issues with branch name conflicts in parallel execution"]
 async fn test_create_worktree_with_base_branch() -> Result<()> {
     // Test: Verify that worktree creation works with a specific base branch
     // This test ensures the functionality works when specifying a base branch other than current
@@ -120,8 +134,9 @@ async fn test_create_worktree_with_base_branch() -> Result<()> {
     let (_temp_dir, repo_path) = create_temp_git_repo()?;
     
     // Create a second branch
+    let base_branch_name = unique_branch_name("base-branch");
     let output = std::process::Command::new("git")
-        .args(&["checkout", "-b", "base-branch"])
+        .args(&["checkout", "-b", &base_branch_name])
         .current_dir(&repo_path)
         .output()?;
     
@@ -155,7 +170,8 @@ async fn test_create_worktree_with_base_branch() -> Result<()> {
     let manager = GitWorktreeManager::new(repo_path)?;
     
     // Create worktree from base-branch
-    let worktree_path = manager.create_worktree("test-branch", Some("base-branch"), None).await?;
+    let worktree_branch_name = unique_branch_name("test-branch");
+    let worktree_path = manager.create_worktree(&worktree_branch_name, Some(&base_branch_name), None).await?;
     
     // Verify worktree contains files from base branch
     assert!(worktree_path.join("README.md").exists(), "Worktree should contain README.md");
@@ -165,7 +181,6 @@ async fn test_create_worktree_with_base_branch() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test has issues with branch name conflicts in parallel execution"]
 async fn test_create_worktree_custom_directory() -> Result<()> {
     // Test: Verify that worktree creation works with custom directory name
     // This test ensures the worktree_dir parameter functions correctly
@@ -174,10 +189,12 @@ async fn test_create_worktree_custom_directory() -> Result<()> {
     let manager = GitWorktreeManager::new(repo_path)?;
     
     // Create worktree with custom directory name
-    let worktree_path = manager.create_worktree("test-branch", None, Some("custom-worktree")).await?;
+    let branch_name = unique_branch_name("test-branch");
+    let custom_dir = unique_branch_name("custom-worktree");
+    let worktree_path = manager.create_worktree(&branch_name, None, Some(&custom_dir)).await?;
     
     // Verify the directory name is custom
-    assert_eq!(worktree_path.file_name().unwrap(), "custom-worktree");
+    assert_eq!(worktree_path.file_name().unwrap(), custom_dir.as_str());
     assert!(worktree_path.exists(), "Custom worktree directory should exist");
     
     Ok(())
