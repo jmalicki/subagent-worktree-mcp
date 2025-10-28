@@ -1,8 +1,22 @@
 use anyhow::Result;
 use tempfile::TempDir;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use subagent_worktree_mcp::git_operations::GitWorktreeManager;
+
+/// Generate a unique branch name for testing to avoid parallel execution conflicts
+fn unique_branch_name(prefix: &str) -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{}-{}-{}", prefix, timestamp, counter)
+}
 
 /// Test helper to create a temporary git repository
 fn create_temp_git_repo() -> Result<(TempDir, std::path::PathBuf)> {
@@ -106,7 +120,6 @@ async fn test_create_worktree_invalid_base_branch() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test has issues with branch name conflicts in parallel execution"]
 async fn test_create_worktree_duplicate_branch() -> Result<()> {
     // Test: Verify worktree creation fails gracefully for duplicate branch names
     // This test ensures proper error handling for existing branches
@@ -114,11 +127,13 @@ async fn test_create_worktree_duplicate_branch() -> Result<()> {
     let (_temp_dir, repo_path) = create_temp_git_repo()?;
     let manager = GitWorktreeManager::new(repo_path)?;
     
+    let branch_name = unique_branch_name("duplicate-branch");
+    
     // Create first worktree
-    let _first_worktree = manager.create_worktree("duplicate-branch", None, None).await?;
+    let _first_worktree = manager.create_worktree(&branch_name, None, None).await?;
     
     // Try to create another worktree with the same branch name
-    let result = manager.create_worktree("duplicate-branch", None, None).await;
+    let result = manager.create_worktree(&branch_name, None, None).await;
     
     // Should fail gracefully for duplicate branch name
     assert!(result.is_err(), "Should fail for duplicate branch name");
@@ -127,7 +142,6 @@ async fn test_create_worktree_duplicate_branch() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test has issues with branch name conflicts in parallel execution"]
 async fn test_create_worktree_invalid_directory_name() -> Result<()> {
     // Test: Verify worktree creation handles invalid directory names
     // This test ensures proper error handling for malformed directory names
@@ -135,8 +149,10 @@ async fn test_create_worktree_invalid_directory_name() -> Result<()> {
     let (_temp_dir, repo_path) = create_temp_git_repo()?;
     let manager = GitWorktreeManager::new(repo_path)?;
     
+    let branch_name = unique_branch_name("test-branch");
+    
     // Try to create worktree with invalid directory name
-    let result = manager.create_worktree("test-branch", None, Some("")).await;
+    let result = manager.create_worktree(&branch_name, None, Some("")).await;
     
     // Should fail gracefully for empty directory name
     assert!(result.is_err(), "Should fail for empty directory name");
@@ -204,7 +220,6 @@ async fn test_list_worktrees_corrupted_repo() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test has issues with branch name conflicts in parallel execution"]
 async fn test_git_operations_permission_errors() -> Result<()> {
     // Test: Verify git operations handle permission errors gracefully
     // This test ensures proper error handling for permission issues
@@ -212,8 +227,10 @@ async fn test_git_operations_permission_errors() -> Result<()> {
     let (_temp_dir, repo_path) = create_temp_git_repo()?;
     let manager = GitWorktreeManager::new(repo_path)?;
     
+    let branch_name = unique_branch_name("permission-test");
+    
     // Create a worktree first
-    let worktree_path = manager.create_worktree("permission-test", None, None).await?;
+    let worktree_path = manager.create_worktree(&branch_name, None, None).await?;
     
     // Make the worktree directory read-only (on Unix systems)
     #[cfg(unix)]
