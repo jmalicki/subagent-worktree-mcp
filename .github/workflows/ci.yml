@@ -91,11 +91,57 @@ jobs:
     - name: Run tests
       run: cargo nextest run --all-features
     
+    - name: Run integration tests
+      run: cargo test --test integration_tests -- --nocapture
+    
+    - name: Run cursor-agent integration tests (basic)
+      run: |
+        # Run basic cursor-agent tests that don't require API key
+        cargo test --test cursor_agent_integration_tests test_cursor_agent_cli -- --nocapture
+      continue-on-error: true
+    
     - name: Run doc tests
       run: cargo test --all-features --doc
     
     - name: Build release binary
       run: cargo build --release
+
+  cursor-agent-integration:
+    name: Cursor Agent Integration Tests
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Install Cursor CLI
+      run: |
+        curl https://cursor.com/install -fsS | bash
+        echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+    
+    - name: Verify cursor-agent installation
+      run: |
+        cursor-agent --version
+        echo "cursor-agent installed successfully"
+    
+    - name: Run cursor-agent integration tests
+      env:
+        CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      run: |
+        # Run only the cursor-agent integration tests
+        cargo test --test cursor_agent_integration_tests -- --nocapture
+      continue-on-error: true  # Allow to fail if API key is not available
+    
+    - name: Test cursor-agent basic functionality
+      env:
+        CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      run: |
+        # Test basic cursor-agent functionality
+        cursor-agent -p "Hello, this is a test prompt" --model gpt-4
+      continue-on-error: true  # Allow to fail if API key is not available
 
   security:
     name: Security Audit
