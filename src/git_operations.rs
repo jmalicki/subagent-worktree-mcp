@@ -126,7 +126,7 @@ impl GitWorktreeManager {
         // Create worktree directory path (adjacent to the main repository)
         let worktree_path = repo_path.parent()
             .context("Repository has no parent directory")?
-            .join(&worktree_dir_name);
+            .join(worktree_dir_name);
 
         // Check if worktree directory already exists
         if worktree_path.exists() {
@@ -224,10 +224,9 @@ impl GitWorktreeManager {
                 if let Some(ref mut worktree) = current_worktree {
                     worktree.commit = Some(line.strip_prefix("HEAD ").unwrap_or("").to_string());
                 }
-            } else if line.starts_with("branch refs/heads/") {
-                if let Some(ref mut worktree) = current_worktree {
-                    worktree.branch = Some(line.strip_prefix("branch refs/heads/").unwrap_or("").to_string());
-                }
+            } else if line.starts_with("branch refs/heads/")
+                && let Some(ref mut worktree) = current_worktree {
+                worktree.branch = Some(line.strip_prefix("branch refs/heads/").unwrap_or("").to_string());
             }
         }
 

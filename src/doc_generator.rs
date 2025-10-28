@@ -49,7 +49,7 @@ impl DocGenerator {
                 _ => {}
             }
             
-            doc.push_str("\n");
+            doc.push('\n');
         }
         
         doc

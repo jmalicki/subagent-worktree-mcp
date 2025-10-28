@@ -126,12 +126,11 @@ impl SubagentWorktreeServer {
         let mut result = format!("Successfully cleaned up worktree: {}", worktree_path.display());
 
         // Optionally delete the branch
-        if delete_branch {
-            if let Some(branch_name) = worktree_path.file_name()
+        if delete_branch
+            && let Some(branch_name) = worktree_path.file_name()
                 .and_then(|name| name.to_str()) {
-                self.remove_branch(branch_name).await?;
-                result.push_str(&format!(" and deleted branch: {}", branch_name));
-            }
+            self.remove_branch(branch_name).await?;
+            result.push_str(&format!(" and deleted branch: {}", branch_name));
         }
 
         Ok(result)
@@ -163,7 +162,7 @@ impl SubagentWorktreeServer {
         Ok(worktree_info.join("\n"))
     }
 
-    async fn kill_agents_in_worktree(&self, worktree_path: &PathBuf) -> Result<()> {
+    async fn kill_agents_in_worktree(&self, worktree_path: &std::path::Path) -> Result<()> {
         // TODO: Implement agent process killing
         // This would use the agent monitor to find and kill processes
         info!("Killing agents in worktree: {}", worktree_path.display());
