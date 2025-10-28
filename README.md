@@ -5,7 +5,7 @@ A Model Context Protocol (MCP) server for spawning subagents with git worktrees.
 ## Features
 
 - **Git Worktree Management**: Create and manage git worktrees for isolated development
-- **Multi-Agent Support**: Spawn different types of agents (cursor-cli, VS Code, vim, etc.)
+- **Multi-Agent Support**: Spawn different types of agents (cursor-agent, VS Code, vim, etc.)
 - **Process Monitoring**: Track running agents and their status
 - **Extensible Architecture**: Easy to add new agent types
 - **MCP Protocol**: Standardized interface for AI agent communication
@@ -16,7 +16,7 @@ A Model Context Protocol (MCP) server for spawning subagents with git worktrees.
 
 - Rust 1.90.0+ (2024 Edition)
 - Git
-- One or more supported agents (cursor-cli, VS Code, etc.)
+- One or more supported agents (cursor-agent, VS Code, etc.)
 - MCP-compatible AI agent (Claude Desktop, Cursor, etc.)
 
 ### Installation
@@ -67,7 +67,7 @@ cargo build --release
 
 ### Supported Agents
 
-- **cursor-cli**: Cursor AI-powered editor
+- **cursor-agent**: Cursor AI-powered editor
 - **VS Code**: Visual Studio Code
 - **Vim/Neovim**: Terminal-based editors
 - **Extensible**: Easy to add new agent types
@@ -102,7 +102,7 @@ This server implements the Model Context Protocol (MCP) and provides tools for A
       "branch_name": "feature/new-feature",
       "prompt": "Implement user authentication system",
       "base_branch": "main",
-      "agent_type": "cursor-cli",
+      "agent_type": "cursor-agent",
       "agent_options": {
         "new_window": true,
         "detach": false
@@ -137,7 +137,7 @@ Spawn a new subagent with a git worktree.
 - `prompt` (required): Initial prompt for the subagent
 - `base_branch` (optional): Base branch to create from
 - `worktree_dir` (optional): Custom worktree directory name
-- `agent_type` (optional): Type of agent to spawn (default: "cursor-cli")
+- `agent_type` (optional): Type of agent to spawn (default: "cursor-agent")
 - `agent_options` (optional): Agent-specific options
 
 ### `monitor_agents`

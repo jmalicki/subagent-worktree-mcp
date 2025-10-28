@@ -25,7 +25,7 @@ pub struct SubagentConfig {
     /// Optional directory name for the worktree (defaults to branch_name)
     pub worktree_dir: Option<String>,
     
-    /// Agent type to spawn (defaults to "cursor-cli")
+    /// Agent type to spawn (defaults to "cursor-agent")
     pub agent_type: Option<String>,
     
     /// Agent-specific options
@@ -85,7 +85,7 @@ impl SubagentWorktreeServer {
         info!("Created worktree at: {}", worktree_path.display());
 
         // Determine agent type and options
-        let agent_type = config.agent_type.unwrap_or_else(|| "cursor-cli".to_string());
+        let agent_type = config.agent_type.unwrap_or_else(|| "cursor-agent".to_string());
         let agent_options = config.agent_options.unwrap_or_default();
         
         // Spawn the specified agent in the new worktree directory
@@ -277,8 +277,8 @@ impl RequestHandler for SubagentWorktreeServer {
                             },
                             "agent_type": {
                                 "type": "string",
-                                "description": "Type of agent to spawn (optional, defaults to 'cursor-cli')",
-                                "enum": ["cursor-cli", "vscode", "vim", "neovim"]
+                                "description": "Type of agent to spawn (optional, defaults to 'cursor-agent')",
+                                "enum": ["cursor-agent", "vscode", "vim", "neovim"]
                             },
                             "agent_options": {
                                 "type": "object",

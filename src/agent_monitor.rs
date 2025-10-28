@@ -10,7 +10,7 @@ use tracing::{debug, info, warn};
 pub struct AgentProcessInfo {
     /// Process ID
     pub pid: u32,
-    /// Process name (e.g., "cursor-cli", "code", "vim")
+    /// Process name (e.g., "cursor-agent", "code", "vim")
     pub name: String,
     /// Command line arguments
     pub cmd: Vec<String>,
@@ -37,7 +37,7 @@ pub struct AgentMonitorConfig {
     pub only_our_agents: bool,
     /// Only show agents waiting for input
     pub only_waiting_agents: bool,
-    /// Filter by specific agent types (e.g., ["cursor-cli", "code"])
+    /// Filter by specific agent types (e.g., ["cursor-agent", "code"])
     pub agent_types: Option<Vec<String>>,
     /// Filter by worktree paths
     pub worktree_paths: Option<Vec<String>>,
@@ -136,7 +136,7 @@ impl AgentMonitor {
         
         // Common agent/editor process names
         let agent_names = [
-            "cursor", "cursor-cli", "code", "code-cli", "vim", "nvim", "emacs",
+            "cursor", "cursor-agent", "code", "code-cli", "vim", "nvim", "emacs",
             "sublime", "atom", "brackets", "webstorm", "intellij", "pycharm",
             "clion", "rider", "goland", "phpstorm", "rubymine", "datagrip",
             "android-studio", "fleet", "zed", "lapce", "helix", "kakoune"
@@ -205,7 +205,7 @@ impl AgentMonitor {
             
             // Look for common patterns that indicate we spawned this process
             let our_patterns = [
-                "--new-window", "--wait", "cursor-cli", "code --new-window"
+                "--new-window", "--wait", "cursor-agent", "code --new-window"
             ];
             
             return our_patterns.iter().any(|pattern| cmd_str.contains(pattern));
