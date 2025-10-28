@@ -1,10 +1,6 @@
 use anyhow::Result;
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-
-use crate::server::{SubagentConfig, CleanupConfig};
-use crate::{AgentOptions, AgentMonitorConfig};
 
 /// Documentation generator that extracts schema information from Rust structs
 /// and generates markdown documentation

@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
-use tokio::fs;
+use tracing::{info, warn};
 
 use crate::git_operations::GitWorktreeManager;
 use crate::subagent_spawner::{SubagentSpawner, CursorCliAgent, AgentOptions};

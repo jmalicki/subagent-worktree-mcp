@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use git2::{Branch, BranchType, Repository};
+use git2::{BranchType, Repository};
 use std::path::{Path, PathBuf};
 use tokio::task;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Manages git worktree operations for subagent spawning
 pub struct GitWorktreeManager {
