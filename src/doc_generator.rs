@@ -1,6 +1,5 @@
 use anyhow::Result;
-use mcp::types::Tool;
-use serde_json::Value;
+use rmcp::types::Tool;
 use std::fs;
 use std::path::Path;
 
@@ -39,7 +38,7 @@ impl DocGenerator {
         }
 
         // Parameters from JSON schema
-        if let mcp::types::ToolInputSchema::JsonSchema(schema) = &tool.input_schema {
+        if let rmcp::types::ToolInputSchema::JsonSchema(schema) = &tool.input_schema {
             if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
                 if !properties.is_empty() {
                     doc.push_str("**Parameters:**\n");
@@ -138,7 +137,7 @@ impl DocGenerator {
                 println!("   Description: {}", description);
             }
             
-            if let mcp::types::ToolInputSchema::JsonSchema(schema) = &tool.input_schema {
+            if let rmcp::types::ToolInputSchema::JsonSchema(schema) = &tool.input_schema {
                 if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
                     println!("   Parameters: {} total", properties.len());
                     for (name, prop) in properties {
