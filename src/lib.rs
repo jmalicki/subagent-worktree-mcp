@@ -1,26 +1,28 @@
 //! Subagent Worktree MCP Server
-//! 
+//!
 //! A Model Context Protocol (MCP) server for spawning subagents with git worktrees.
 //! This library provides functionality for creating isolated development environments
 //! for AI agents using git worktrees and managing their lifecycle.
 
 pub mod agent_monitor;
+pub mod doc_generator;
 pub mod git_operations;
 pub mod subagent_spawner;
-pub mod doc_generator;
 
 // Re-export main types for easier use
 pub use agent_monitor::{AgentMonitor, AgentMonitorConfig, AgentProcessInfo, AgentSummary};
-pub use git_operations::{GitWorktreeManager, WorktreeInfo};
-pub use subagent_spawner::{AgentSpawner, AgentOptions, AgentInfo, SubagentSpawner, CursorCliAgent};
 pub use doc_generator::DocGenerator;
+pub use git_operations::{GitWorktreeManager, WorktreeInfo};
+pub use subagent_spawner::{
+    AgentInfo, AgentOptions, AgentSpawner, CursorCliAgent, SubagentSpawner,
+};
 
 // MCP Server implementation
 use anyhow::Result;
-use rmcp::tool_router;
-use rmcp::tool;
-use rmcp::handler::server::wrapper::Parameters;
 use rmcp::handler::server::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::tool;
+use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -74,7 +76,7 @@ impl SubagentWorktreeServer {
     pub fn new(repo_path: PathBuf) -> Result<Self> {
         let git_manager = GitWorktreeManager::new(repo_path)?;
         let spawner = SubagentSpawner::new()?;
-        
+
         Ok(Self {
             git_manager,
             spawner,
@@ -83,30 +85,39 @@ impl SubagentWorktreeServer {
     }
 
     async fn handle_spawn_subagent(&self, config: SubagentConfig) -> Result<String> {
-        let worktree_dir = config.worktree_dir.unwrap_or_else(|| config.branch_name.clone());
-        let agent_type = config.agent_type.unwrap_or_else(|| "cursor-agent".to_string());
-        
-        info!("Spawning subagent: branch={}, worktree={}, agent={}", 
-              config.branch_name, worktree_dir, agent_type);
+        let worktree_dir = config
+            .worktree_dir
+            .unwrap_or_else(|| config.branch_name.clone());
+        let agent_type = config
+            .agent_type
+            .unwrap_or_else(|| "cursor-agent".to_string());
+
+        info!(
+            "Spawning subagent: branch={}, worktree={}, agent={}",
+            config.branch_name, worktree_dir, agent_type
+        );
 
         // Create the worktree
-        let worktree_path = self.git_manager.create_worktree(
-            &config.branch_name,
-            None, // No base branch specified
-            Some(&worktree_dir),
-        ).await?;
+        let worktree_path = self
+            .git_manager
+            .create_worktree(
+                &config.branch_name,
+                None, // No base branch specified
+                Some(&worktree_dir),
+            )
+            .await?;
 
         // Spawn the agent
         let options = config.agent_options.unwrap_or_default();
-        self.spawner.spawn_agent(
-            &agent_type,
-            &worktree_path,
-            &config.prompt,
-            &options,
-        ).await?;
+        self.spawner
+            .spawn_agent(&agent_type, &worktree_path, &config.prompt, &options)
+            .await?;
 
-        Ok(format!("Successfully spawned {} subagent in worktree: {}", 
-                   agent_type, worktree_path.display()))
+        Ok(format!(
+            "Successfully spawned {} subagent in worktree: {}",
+            agent_type,
+            worktree_path.display()
+        ))
     }
 
     async fn handle_cleanup_worktree(&self, config: CleanupConfig) -> Result<String> {
@@ -114,8 +125,12 @@ impl SubagentWorktreeServer {
         let delete_branch = config.delete_branch.unwrap_or(false);
         let force = config.force.unwrap_or(false);
 
-        info!("Cleaning up worktree: {}, delete_branch={}, force={}", 
-              worktree_path.display(), delete_branch, force);
+        info!(
+            "Cleaning up worktree: {}, delete_branch={}, force={}",
+            worktree_path.display(),
+            delete_branch,
+            force
+        );
 
         // Kill any agents running in this worktree
         self.kill_agents_in_worktree(&worktree_path).await?;
@@ -123,12 +138,15 @@ impl SubagentWorktreeServer {
         // Remove the worktree
         self.git_manager.remove_worktree(&worktree_path).await?;
 
-        let mut result = format!("Successfully cleaned up worktree: {}", worktree_path.display());
+        let mut result = format!(
+            "Successfully cleaned up worktree: {}",
+            worktree_path.display()
+        );
 
         // Optionally delete the branch
         if delete_branch
-            && let Some(branch_name) = worktree_path.file_name()
-                .and_then(|name| name.to_str()) {
+            && let Some(branch_name) = worktree_path.file_name().and_then(|name| name.to_str())
+        {
             self.remove_branch(branch_name).await?;
             result.push_str(&format!(" and deleted branch: {}", branch_name));
         }
@@ -141,24 +159,40 @@ impl SubagentWorktreeServer {
         let only_our_agents = config.only_our_agents.unwrap_or(true);
         let only_waiting_agents = config.only_waiting_agents.unwrap_or(false);
 
-        info!("Listing worktrees: include_agents={}, only_our_agents={}, only_waiting_agents={}", 
-              include_agents, only_our_agents, only_waiting_agents);
+        info!(
+            "Listing worktrees: include_agents={}, only_our_agents={}, only_waiting_agents={}",
+            include_agents, only_our_agents, only_waiting_agents
+        );
 
         let worktrees = self.git_manager.list_worktrees().await?;
-        
+
         if !include_agents {
-            let worktree_info: Vec<String> = worktrees.iter()
-                .map(|wt| format!("- {} (branch: {})", wt.path.display(), wt.branch.as_deref().unwrap_or("unknown")))
+            let worktree_info: Vec<String> = worktrees
+                .iter()
+                .map(|wt| {
+                    format!(
+                        "- {} (branch: {})",
+                        wt.path.display(),
+                        wt.branch.as_deref().unwrap_or("unknown")
+                    )
+                })
                 .collect();
             return Ok(worktree_info.join("\n"));
         }
 
         // TODO: Implement agent monitoring integration
         // For now, just return worktree information
-        let worktree_info: Vec<String> = worktrees.iter()
-            .map(|wt| format!("- {} (branch: {}) - No agent info available", wt.path.display(), wt.branch.as_deref().unwrap_or("unknown")))
+        let worktree_info: Vec<String> = worktrees
+            .iter()
+            .map(|wt| {
+                format!(
+                    "- {} (branch: {}) - No agent info available",
+                    wt.path.display(),
+                    wt.branch.as_deref().unwrap_or("unknown")
+                )
+            })
             .collect();
-        
+
         Ok(worktree_info.join("\n"))
     }
 
@@ -198,7 +232,10 @@ impl SubagentWorktreeServer {
 
     /// List all git worktrees and their associated agents
     #[tool(description = "List all git worktrees and their associated agents")]
-    async fn list_worktrees(&self, params: Parameters<ListWorktreesConfig>) -> Result<String, String> {
+    async fn list_worktrees(
+        &self,
+        params: Parameters<ListWorktreesConfig>,
+    ) -> Result<String, String> {
         match self.handle_list_worktrees(params.0).await {
             Ok(result) => Ok(result),
             Err(e) => Err(format!("Failed to list worktrees: {}", e)),
@@ -214,19 +251,22 @@ pub async fn run_server() -> Result<()> {
         .init();
 
     let repo_path = std::env::current_dir()?;
-    info!("Starting MCP server for repository: {}", repo_path.display());
-    
+    info!(
+        "Starting MCP server for repository: {}",
+        repo_path.display()
+    );
+
     let _server = SubagentWorktreeServer::new(repo_path)?;
-    
+
     info!("MCP server started with tools:");
     info!("  - spawn_subagent: Spawn a new subagent with a git worktree");
     info!("  - cleanup_worktree: Clean up a worktree and optionally delete the branch");
     info!("  - list_worktrees: List all git worktrees and their associated agents");
-    
+
     // TODO: Implement proper MCP server serving
     // For now, just keep the server running
     tokio::signal::ctrl_c().await?;
     info!("MCP server shutting down");
-    
+
     Ok(())
 }

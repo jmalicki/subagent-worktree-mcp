@@ -14,7 +14,10 @@ impl GitWorktreeManager {
     pub fn new(repo_path: PathBuf) -> Result<Self> {
         // Validate that the path is a git repository
         if !Self::is_git_repo_path(&repo_path) {
-            return Err(anyhow::anyhow!("Path is not a git repository: {}", repo_path.display()));
+            return Err(anyhow::anyhow!(
+                "Path is not a git repository: {}",
+                repo_path.display()
+            ));
         }
 
         Ok(Self { repo_path })
@@ -31,12 +34,12 @@ impl GitWorktreeManager {
     }
 
     /// Create a new worktree for the subagent
-    /// 
+    ///
     /// # Arguments
     /// * `branch_name` - Name of the branch to create
     /// * `base_branch` - Optional base branch to create from (defaults to current branch)
     /// * `worktree_dir` - Optional directory name for the worktree (defaults to branch_name)
-    /// 
+    ///
     /// # Returns
     /// Path to the created worktree directory
     pub async fn create_worktree(
@@ -52,7 +55,12 @@ impl GitWorktreeManager {
 
         // Run git operations in a blocking task to avoid blocking the async runtime
         task::spawn_blocking(move || {
-            Self::create_worktree_blocking(&repo_path, &branch_name, base_branch.as_deref(), worktree_dir.as_deref())
+            Self::create_worktree_blocking(
+                &repo_path,
+                &branch_name,
+                base_branch.as_deref(),
+                worktree_dir.as_deref(),
+            )
         })
         .await
         .context("Failed to spawn blocking task")?
@@ -66,8 +74,7 @@ impl GitWorktreeManager {
         worktree_dir: Option<&str>,
     ) -> Result<PathBuf> {
         // Open the git repository
-        let repo = Repository::open(repo_path)
-            .context("Failed to open git repository")?;
+        let repo = Repository::open(repo_path).context("Failed to open git repository")?;
 
         debug!("Opened repository at: {}", repo_path.display());
 
@@ -76,9 +83,8 @@ impl GitWorktreeManager {
             Some(branch) => branch.to_string(),
             None => {
                 // Get current branch
-                let head = repo.head()
-                    .context("Failed to get HEAD reference")?;
-                
+                let head = repo.head().context("Failed to get HEAD reference")?;
+
                 if let Some(name) = head.shorthand() {
                     name.to_string()
                 } else {
@@ -87,50 +93,64 @@ impl GitWorktreeManager {
             }
         };
 
-        info!("Creating branch '{}' from base branch '{}'", branch_name, base_branch_name);
+        info!(
+            "Creating branch '{}' from base branch '{}'",
+            branch_name, base_branch_name
+        );
 
         // Check if branch already exists
         if Self::branch_exists(&repo, branch_name)? {
-            warn!("Branch '{}' already exists, checking it out instead", branch_name);
-            
+            warn!(
+                "Branch '{}' already exists, checking it out instead",
+                branch_name
+            );
+
             // If branch exists, just check it out
-            let branch_ref = repo.find_branch(branch_name, BranchType::Local)
+            let branch_ref = repo
+                .find_branch(branch_name, BranchType::Local)
                 .context("Failed to find existing branch")?;
-            
-            let commit = branch_ref.get().peel_to_commit()
+
+            let commit = branch_ref
+                .get()
+                .peel_to_commit()
                 .context("Failed to get commit from branch")?;
-            
+
             repo.checkout_tree(&commit.into_object(), None)
                 .context("Failed to checkout existing branch")?;
-            
+
             repo.set_head(&format!("refs/heads/{}", branch_name))
                 .context("Failed to set HEAD to existing branch")?;
         } else {
             // Create new branch from base branch
             let base_commit = Self::get_branch_commit(&repo, &base_branch_name)?;
-            
-            let _branch_ref = repo.branch(branch_name, &base_commit, false)
+
+            let _branch_ref = repo
+                .branch(branch_name, &base_commit, false)
                 .context("Failed to create new branch")?;
-            
+
             // Checkout the new branch
             repo.checkout_tree(&base_commit.into_object(), None)
                 .context("Failed to checkout new branch")?;
-            
+
             repo.set_head(&format!("refs/heads/{}", branch_name))
                 .context("Failed to set HEAD to new branch")?;
         }
 
         // Determine worktree directory name
         let worktree_dir_name = worktree_dir.unwrap_or(branch_name);
-        
+
         // Create worktree directory path (adjacent to the main repository)
-        let worktree_path = repo_path.parent()
+        let worktree_path = repo_path
+            .parent()
             .context("Repository has no parent directory")?
             .join(worktree_dir_name);
 
         // Check if worktree directory already exists
         if worktree_path.exists() {
-            warn!("Worktree directory already exists: {}", worktree_path.display());
+            warn!(
+                "Worktree directory already exists: {}",
+                worktree_path.display()
+            );
             return Ok(worktree_path);
         }
 
@@ -149,7 +169,10 @@ impl GitWorktreeManager {
             return Err(anyhow::anyhow!("Git worktree add failed: {}", error_msg));
         }
 
-        info!("Successfully created worktree at: {}", worktree_path.display());
+        info!(
+            "Successfully created worktree at: {}",
+            worktree_path.display()
+        );
         Ok(worktree_path)
     }
 
@@ -165,13 +188,16 @@ impl GitWorktreeManager {
     /// Get the commit for a given branch name
     fn get_branch_commit<'a>(repo: &'a Repository, branch_name: &str) -> Result<git2::Commit<'a>> {
         // Try to find the branch reference
-        let branch_ref = repo.find_branch(branch_name, BranchType::Local)
+        let branch_ref = repo
+            .find_branch(branch_name, BranchType::Local)
             .or_else(|_| repo.find_branch(branch_name, BranchType::Remote))
             .context(format!("Branch '{}' not found", branch_name))?;
 
         // Get the commit from the branch
-        let commit = branch_ref.get().peel_to_commit()
-            .context(format!("Failed to get commit from branch '{}'", branch_name))?;
+        let commit = branch_ref.get().peel_to_commit().context(format!(
+            "Failed to get commit from branch '{}'",
+            branch_name
+        ))?;
 
         Ok(commit)
     }
@@ -179,12 +205,10 @@ impl GitWorktreeManager {
     /// List all existing worktrees
     pub async fn list_worktrees(&self) -> Result<Vec<WorktreeInfo>> {
         let repo_path = self.repo_path.clone();
-        
-        task::spawn_blocking(move || {
-            Self::list_worktrees_blocking(&repo_path)
-        })
-        .await
-        .context("Failed to spawn blocking task")?
+
+        task::spawn_blocking(move || Self::list_worktrees_blocking(&repo_path))
+            .await
+            .context("Failed to spawn blocking task")?
     }
 
     /// Blocking implementation of listing worktrees
@@ -212,7 +236,7 @@ impl GitWorktreeManager {
                 if let Some(worktree) = current_worktree.take() {
                     worktrees.push(worktree);
                 }
-                
+
                 // Start new worktree
                 let path = line.strip_prefix("worktree ").unwrap_or("");
                 current_worktree = Some(WorktreeInfo {
@@ -225,8 +249,13 @@ impl GitWorktreeManager {
                     worktree.commit = Some(line.strip_prefix("HEAD ").unwrap_or("").to_string());
                 }
             } else if line.starts_with("branch refs/heads/")
-                && let Some(ref mut worktree) = current_worktree {
-                worktree.branch = Some(line.strip_prefix("branch refs/heads/").unwrap_or("").to_string());
+                && let Some(ref mut worktree) = current_worktree
+            {
+                worktree.branch = Some(
+                    line.strip_prefix("branch refs/heads/")
+                        .unwrap_or("")
+                        .to_string(),
+                );
             }
         }
 
@@ -242,12 +271,10 @@ impl GitWorktreeManager {
     pub async fn remove_worktree(&self, worktree_path: &Path) -> Result<()> {
         let repo_path = self.repo_path.clone();
         let worktree_path = worktree_path.to_path_buf();
-        
-        task::spawn_blocking(move || {
-            Self::remove_worktree_blocking(&repo_path, &worktree_path)
-        })
-        .await
-        .context("Failed to spawn blocking task")?
+
+        task::spawn_blocking(move || Self::remove_worktree_blocking(&repo_path, &worktree_path))
+            .await
+            .context("Failed to spawn blocking task")?
     }
 
     /// Blocking implementation of removing worktrees
