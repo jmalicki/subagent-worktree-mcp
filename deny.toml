@@ -7,6 +7,13 @@ unmaintained = "warn"
 # Check for yanked crates
 yanked = "deny"
 
+# Allowlist specific advisories
+ignore = [
+    # paste crate is unmaintained but still widely used and stable
+    # It's a critical dependency for rmcp macros functionality
+    "RUSTSEC-2024-0436",  # paste - no longer maintained
+]
+
 [licenses]
 # Allow specific licenses
 allow = [
